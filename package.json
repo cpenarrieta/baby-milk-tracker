@@ -1,0 +1,12 @@
+{
+  "name": "milky-bby",
+  "version": "1.0.0",
+  "description": "measure milk given to baby",
+  "main": "index.js",
+  "author": "Cristian Penarrieta",
+  "license": "ISC",
+  "dependencies": {
+    "alexa-app": "^4.0.1",
+    "dynasty": "0.2.7"
+  }
+}

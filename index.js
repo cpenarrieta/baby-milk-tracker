@@ -5,14 +5,14 @@ const AWSregion = 'us-east-1'
 const TABLE_USER = 'milky_baby_user'
 const SKILL_ID = 'amzn1.ask.skill.2cb7cf3a-c642-4db2-b5d2-a27c0cb1f387'
 
-const getParams = {
+let getParams = {
   TableName: TABLE_USER,
   Key: { 
     userId: '',
   }
 }
 
-const putParams = {
+let putParams = {
   TableName: TABLE_USER,
   Item: { 
     userId: '',
@@ -28,7 +28,6 @@ AWS.config.update({
 exports.handler = function(event, context, callback) {
   const alexa = Alexa.handler(event, context)
   alexa.appId = SKILL_ID
-  alexa.dynamoDBTableName = TABLE_USER
   alexa.registerHandlers(handlers)
   alexa.execute()
 }
@@ -47,7 +46,10 @@ const handlers = {
     const date = new Date()
 
     readDynamoItem(getParams, user => {
-      const milks = user.milks || []
+      let milks = []
+      if (user && user.milks) {
+        milks = user.milks
+      }
       milks.push({ amount: amount.value, unit: unit.value, date: date.toString() })
       putParams.Item.milks = milks
 
@@ -62,7 +64,6 @@ const handlers = {
     getParams.Key.userId = userId
 
     readDynamoItem(getParams, user => {
-      console.log(user)
       const total = 230
       const unit = 'milliliters'
       this.emit(':tell', `Your baby consumed about ${total} ${unit} today. The next feeding time is at 4pm`)

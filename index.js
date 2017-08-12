@@ -1,56 +1,72 @@
-// alexa-cookbook sample code
+const Alexa = require('alexa-sdk')
+const AWS = require('aws-sdk')
 
-// There are three sections, Text Strings, Skill Code, and Helper Function(s).
-// You can copy and paste the entire file contents as the code for a new Lambda function,
-//  or copy & paste section #3, the helper function, to the bottom of your existing Lambda code.
-
-
-// 1. Text strings =====================================================================================================
-// Modify these strings and messages to change the behavior of your Lambda function
-
-var AWSregion = 'us-east-1'
-
+const AWSregion = 'us-east-1'
 const TABLE_USER = 'milky_baby_user'
 const SKILL_ID = 'amzn1.ask.skill.2cb7cf3a-c642-4db2-b5d2-a27c0cb1f387'
 
-var params = {
-  TableName: 'milky_baby_user',
-  Key: { "userId": '0' }
+const getParams = {
+  TableName: TABLE_USER,
+  Key: { 
+    userId: '',
+  }
 }
 
-
-// 2. Skill Code =======================================================================================================
-
-var Alexa = require('alexa-sdk')
-var AWS = require('aws-sdk')
+const putParams = {
+  TableName: TABLE_USER,
+  Item: { 
+    userId: '',
+    unit: 'ml',
+    milks: [],
+  }
+}
 
 AWS.config.update({
   region: AWSregion
 })
 
 exports.handler = function(event, context, callback) {
-  var alexa = Alexa.handler(event, context)
-
+  const alexa = Alexa.handler(event, context)
   alexa.appId = SKILL_ID
   alexa.dynamoDBTableName = TABLE_USER
-
   alexa.registerHandlers(handlers)
   alexa.execute()
 }
 
-var handlers = {
+const handlers = {
   'LaunchRequest': function () {
-    // this.emit(':ask', 'welcome to magic answers.  ask me a yes or no question.', 'try again')
-    // this.emit(':tell', 'This test works!')
-    this.emit(':tell', 'LaunchRequest')
+    this.emit(':tell', 'Welcome to the Milky Baby Skill!')
   },
 
   'SubmitMilkIntent': function () {
-    this.emit(':tell', 'Submit Milk Intent!')
+    const userId = this.event.session.user.userId
+    getParams.Key.userId = userId
+    putParams.Item.userId = userId
+
+    const { amount, unit } = this.event.request.intent.slots
+    const date = new Date()
+
+    readDynamoItem(getParams, user => {
+      const milks = user.milks || []
+      milks.push({ amount: amount.value, unit: unit.value, date: date.toString() })
+      putParams.Item.milks = milks
+
+      addMilkItem(putParams, result => {
+        this.emit(':tell', `You selected ${amount.value} ${unit.value}`)
+      })
+    })
   },
 
   'WhatsMyStatusIntent': function () {
-    this.emit(':tell', 'Whats My Status Intent!')
+    const userId = this.event.session.user.userId
+    getParams.Key.userId = userId
+
+    readDynamoItem(getParams, user => {
+      console.log(user)
+      const total = 230
+      const unit = 'milliliters'
+      this.emit(':tell', `Your baby consumed about ${total} ${unit} today. The next feeding time is at 4pm`)
+    })
   },
 
   'ChangeBirthdayIntent': function () {
@@ -58,48 +74,39 @@ var handlers = {
   },
 
   'AMAZON.HelpIntent': function () {
-    // this.emit(':ask', 'ask me a yes or no question.', 'try again')
-    this.emit(':tell', 'HelpIntent!')
+    this.emit(':tell', 'Welcome to the Milky Baby Skill!')
   },
 
   'AMAZON.CancelIntent': function () {
-    this.emit(':tell', 'Goodbye!')
+    this.emit(':tell', 'Thank you for trying the Milky Baby Skill. Have a nice day!')
   },
 
   'AMAZON.StopIntent': function () {
-    this.emit(':tell', 'Goodbye!')
+    this.emit(':tell', 'Thank you for trying the Milky Baby Skill. Have a nice day!')
   }
 }
 
-  // 'MyIntent': function () {
-  //   var MyQuestion = this.event.request.intent.slots.MyQuestion.value
-  //   console.log('MyQuestion : ' + MyQuestion)
-
-  //   readDynamoItem(params, myResult => {
-  //     var say = ''
-  //     say = myResult
-  //     say = 'you asked, ' + MyQuestion + '. The answer is: ' + myResult
-  //     this.emit(':ask', say, 'try again')
-  //   })
-  // },
-
-//    END of Intent Handlers {} ========================================================================================
-// 3. Helper Function  =================================================================================================
-
 function readDynamoItem(params, callback) {
-  var AWS = require('aws-sdk')
-  AWS.config.update({ region: AWSregion })
-
-  var docClient = new AWS.DynamoDB.DocumentClient()
-
-  console.log('reading item from DynamoDB table')
-
+  const docClient = new AWS.DynamoDB.DocumentClient()
+  
   docClient.get(params, (err, data) => {
     if (err) {
-      console.error("Unable to read item. Error JSON:", JSON.stringify(err, null, 2))
+      console.error("Unable to GET item. Error JSON:", JSON.stringify(err, null, 2))
     } else {
-      console.log("GetItem succeeded:", JSON.stringify(data, null, 2))
-      callback(data.Item.message)  // this particular row has an attribute called message
+      console.log("GET item JSON:", JSON.stringify(data.Item, null, 2))
+      callback(data.Item)
+    }
+  })
+}
+
+function addMilkItem(putParams, callback) {
+  const docClient = new AWS.DynamoDB.DocumentClient()
+
+  docClient.put(putParams, (err, data) => {
+    if (err) {
+      console.error("Unable to PUT item. Error JSON:", JSON.stringify(err, null, 2))
+    } else {
+      callback(data)
     }
   })
 }

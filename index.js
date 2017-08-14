@@ -52,6 +52,7 @@ const handlers = {
       }
       milks.push({ amount: amount.value, unit: unit.value, date: date.toString() })
       putParams.Item.milks = milks
+      putParams.Item.unit = unit
 
       addMilkItem(putParams, result => {
         this.emit(':tell', `You selected ${amount.value} ${unit.value}`)
@@ -64,8 +65,11 @@ const handlers = {
     getParams.Key.userId = userId
 
     readDynamoItem(getParams, user => {
-      const total = 230
-      const unit = 'milliliters'
+      const unit = user.unit
+      let total = 0
+      user.milks.forEach(m => {
+        total += parseInt(m.amount, 10)
+      })
       this.emit(':tell', `Your baby consumed about ${total} ${unit} today. The next feeding time is at 4pm`)
     })
   },

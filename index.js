@@ -43,7 +43,6 @@ const handlers = {
     putParams.Item.userId = userId
 
     const { amount, unit } = this.event.request.intent.slots
-    const date = this.event.request.timestamp
     const locale = this.event.request.locale
 
     readDynamoItem(getParams, user => {
@@ -52,9 +51,9 @@ const handlers = {
         milks = user.milks
       }
 
-      milks.push({ amount: amount.value, unit: unit.value, date })
+      milks.push({ amount: amount.value, unit: unit.value, date: (new Date()).toString() })
       putParams.Item.milks = milks
-      putParams.Item.unit = unit
+      putParams.Item.unit = unit.value
       putParams.Item.locale = locale
 
       addMilkItem(putParams, result => {

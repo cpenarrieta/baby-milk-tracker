@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "measure milk given to baby",
   "main": "index.js",
-  "author": "Cristian Penarrieta",
+  "author": "Cristian Penarrieta Cornejo",
   "license": "ISC",
   "dependencies": {
     "alexa-sdk": "1.0.11",

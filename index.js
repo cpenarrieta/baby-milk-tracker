@@ -1,6 +1,8 @@
 const Alexa = require('alexa-sdk')
 const AWS = require('aws-sdk')
+const moment = require('moment-timezone')
 const https = require('https')
+const axios = require('axios')
 
 const AWSregion = 'us-east-1'
 const TABLE_USER = 'milky_baby_user'
@@ -29,44 +31,59 @@ const handlers = {
   'LaunchRequest': function () {
     let countryCode = ''
     let postalCode = ''
+    let lat = 0
+    let lng = 0
+    let city = ''
+    let state = ''
+    let timeZoneId = ''
     const userId = this.event.session.user.userId
     const consentToken = this.event.session.user.permissions.consentToken
     const deviceId = this.event.context.System.device.deviceId
-    const url = `/v1/devices/${deviceId}/settings/address/countryAndPostalCode`
-    
+
     var ctx = this
-    
-    https.get({
-      hostname: 'api.amazonalexa.com',
-      path: url,
-      headers: {
-        'Authorization': `Bearer ${consentToken}`
-      }
-    }, function(res) {
-      res.on('data', function(body) {
-        const obj = JSON.parse(body)
-        countryCode = obj.countryCode
-        postalCode = obj.postalCode
-      })
 
-      res.on('end', function(res) {
-        getParams.Key.userId = userId
-        readDynamoItem(getParams, user => {
-          putParams.Item.userId = userId
-          if (user.milks)
-            putParams.Item.milks = user.milks
-          if (user.unit)
-            putParams.Item.unit = user.unit
-          putParams.Item.countryCode = countryCode
-          putParams.Item.postalCode = postalCode
+    axios.get(`https://api.amazonalexa.com/v1/devices/${deviceId}/settings/address/countryAndPostalCode`, {
+      headers: { 'Authorization': `Bearer ${consentToken}` }
+    })
+    .then((response) => {
+      countryCode = response.data.countryCode
+      postalCode = response.data.postalCode
+      return axios.get(`https://maps.googleapis.com/maps/api/geocode/json?address=${countryCode},${postalCode}&key=${process.env.GOOGLE_MAPS_KEY}`)
+    })
+    .then((response) => {
+      city = response.data.results[0].address_components[1].short_name
+      state = response.data.results[0].address_components[3].short_name
+      lat = response.data.results[0].geometry.location.lat
+      lng = response.data.results[0].geometry.location.lng
+      return axios.get(`https://maps.googleapis.com/maps/api/timezone/json?location=${lat},${lng}&timestamp=${moment().unix()}&key=${process.env.GOOGLE_MAPS_KEY}`)
+    })
+    .then((response) => {
+      timeZoneId = response.data.timeZoneId
+      getParams.Key.userId = userId
 
-          putUser(putParams, result => {
-            ctx.emit(':tell', `Launch Request! ${postalCode}`)
-          })
+      // get current user data
+      readDynamoItem(getParams, user => {
+        putParams.Item.userId = userId
+        if (user.milks)
+          putParams.Item.milks = user.milks
+        if (user.unit)
+          putParams.Item.unit = user.unit
+        putParams.Item.countryCode = countryCode
+        putParams.Item.postalCode = postalCode
+        putParams.Item.city = city
+        putParams.Item.state = state
+        putParams.Item.timeZoneId = timeZoneId
+        putParams.Item.lat = lat
+        putParams.Item.lng = lng
+
+        // update user data
+        putUser(putParams, result => {
+          ctx.emit(':tell', `Launch Request! ${timeZoneId}`)
         })
       })
-    }).on('error', function(e) {
-      console.log("Got error: " + e.message)
+    })
+    .catch((err) => {
+      ctx.emit(':tell', `Error with Milky Baby!`)
     })
   },
 
@@ -75,6 +92,7 @@ const handlers = {
     getParams.Key.userId = userId
 
     const { amount, unit } = this.event.request.intent.slots
+    const currDate = new moment()
 
     readDynamoItem(getParams, user => {
       let milks = []
@@ -82,7 +100,9 @@ const handlers = {
         milks = user.milks
       }
 
-      milks.push({ amount: amount.value, unit: unit.value, date: (new Date()).toString() })
+      const date = currDate.tz(user.timeZoneId).format('YYYY-M-D h:mm:ss a')
+
+      milks.push({ amount: amount.value, unit: unit.value, date })
       putParams.Item.milks = milks
       putParams.Item.userId = userId
       putParams.Item.unit = unit.value
@@ -90,6 +110,16 @@ const handlers = {
         putParams.Item.countryCode = user.countryCode
       if (user.postalCode)
         putParams.Item.postalCode = user.postalCode
+      if (user.city)
+        putParams.Item.city = user.city
+      if (user.state)
+        putParams.Item.state = user.state
+      if (user.timeZoneId)
+        putParams.Item.timeZoneId = user.timeZoneId
+      if (user.lat)
+        putParams.Item.lat = user.lat
+      if (user.lng)
+        putParams.Item.lng = user.lng
 
       putUser(putParams, result => {
         this.emit(':tell', `You selected ${amount.value} ${unit.value}`)

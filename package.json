@@ -8,6 +8,8 @@
   "license": "ISC",
   "dependencies": {
     "alexa-sdk": "1.0.12",
-    "aws-sdk": "2.100.0"
+    "aws-sdk": "2.100.0",
+    "axios": "^0.16.2",
+    "moment-timezone": "^0.5.13"
   }
 }

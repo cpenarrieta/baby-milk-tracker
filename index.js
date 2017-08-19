@@ -1,5 +1,6 @@
 const Alexa = require('alexa-sdk')
 const AWS = require('aws-sdk')
+const https = require('https')
 
 const AWSregion = 'us-east-1'
 const TABLE_USER = 'milky_baby_user'
@@ -17,7 +18,6 @@ let putParams = {
   Item: { 
     userId: '',
     unit: 'ml',
-    milks: [],
   }
 }
 
@@ -25,25 +25,56 @@ AWS.config.update({
   region: AWSregion
 })
 
-exports.handler = function(event, context, callback) {
-  const alexa = Alexa.handler(event, context)
-  alexa.appId = SKILL_ID
-  alexa.registerHandlers(handlers)
-  alexa.execute()
-}
-
 const handlers = {
   'LaunchRequest': function () {
-    this.emit(':tell', 'Welcome to the Milky Baby Skill!')
+    let countryCode = ''
+    let postalCode = ''
+    const userId = this.event.session.user.userId
+    const consentToken = this.event.session.user.permissions.consentToken
+    const deviceId = this.event.context.System.device.deviceId
+    const url = `/v1/devices/${deviceId}/settings/address/countryAndPostalCode`
+    
+    var ctx = this
+    
+    https.get({
+      hostname: 'api.amazonalexa.com',
+      path: url,
+      headers: {
+        'Authorization': `Bearer ${consentToken}`
+      }
+    }, function(res) {
+      res.on('data', function(body) {
+        const obj = JSON.parse(body)
+        countryCode = obj.countryCode
+        postalCode = obj.postalCode
+      })
+
+      res.on('end', function(res) {
+        getParams.Key.userId = userId
+        readDynamoItem(getParams, user => {
+          putParams.Item.userId = userId
+          if (user.milks)
+            putParams.Item.milks = user.milks
+          if (user.unit)
+            putParams.Item.unit = user.unit
+          putParams.Item.countryCode = countryCode
+          putParams.Item.postalCode = postalCode
+
+          putUser(putParams, result => {
+            ctx.emit(':tell', `Launch Request! ${postalCode}`)
+          })
+        })
+      })
+    }).on('error', function(e) {
+      console.log("Got error: " + e.message)
+    })
   },
 
   'SubmitMilkIntent': function () {
     const userId = this.event.session.user.userId
     getParams.Key.userId = userId
-    putParams.Item.userId = userId
 
     const { amount, unit } = this.event.request.intent.slots
-    const locale = this.event.request.locale
 
     readDynamoItem(getParams, user => {
       let milks = []
@@ -53,10 +84,14 @@ const handlers = {
 
       milks.push({ amount: amount.value, unit: unit.value, date: (new Date()).toString() })
       putParams.Item.milks = milks
+      putParams.Item.userId = userId
       putParams.Item.unit = unit.value
-      putParams.Item.locale = locale
+      if (user.countryCode)
+        putParams.Item.countryCode = user.countryCode
+      if (user.postalCode)
+        putParams.Item.postalCode = user.postalCode
 
-      addMilkItem(putParams, result => {
+      putUser(putParams, result => {
         this.emit(':tell', `You selected ${amount.value} ${unit.value}`)
       })
     })
@@ -76,8 +111,9 @@ const handlers = {
     })
   },
 
-  'ChangeBirthdayIntent': function () {
-    this.emit(':tell', 'Change Birthday Intent!')
+  'openIntent': function () {
+    const { state, birthday } = this.event.request.intent.slots
+    this.emit(':tell', `Opening Intent! you selected ${state.value} and ${birthday.value}`)
   },
 
   'AMAZON.HelpIntent': function () {
@@ -90,7 +126,7 @@ const handlers = {
 
   'AMAZON.StopIntent': function () {
     this.emit(':tell', 'Thank you for trying the Milky Baby Skill. Have a nice day!')
-  }
+  },
 }
 
 function readDynamoItem(params, callback) {
@@ -100,13 +136,12 @@ function readDynamoItem(params, callback) {
     if (err) {
       console.error("Unable to GET item. Error JSON:", JSON.stringify(err, null, 2))
     } else {
-      console.log("GET item JSON:", JSON.stringify(data.Item, null, 2))
       callback(data.Item)
     }
   })
 }
 
-function addMilkItem(putParams, callback) {
+function putUser(putParams, callback) {
   const docClient = new AWS.DynamoDB.DocumentClient()
 
   docClient.put(putParams, (err, data) => {
@@ -116,4 +151,11 @@ function addMilkItem(putParams, callback) {
       callback(data)
     }
   })
+}
+
+exports.handler = function(event, context, callback) {
+  const alexa = Alexa.handler(event, context)
+  alexa.appId = SKILL_ID
+  alexa.registerHandlers(handlers)
+  alexa.execute()
 }

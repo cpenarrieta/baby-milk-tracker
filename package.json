@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "description": "measure milk given to baby",
   "main": "index.js",
-  "author": "Cristian Penarrieta Cornejo",
+  "repository": "https://github.com/cpenarrieta/baby-milk-tracker.git",
+  "author": "Cristian Penarrieta <cristian.penarrieta@gmail.com>",
   "license": "ISC",
   "dependencies": {
     "alexa-sdk": "1.0.12",

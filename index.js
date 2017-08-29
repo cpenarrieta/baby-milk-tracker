@@ -61,10 +61,12 @@ function updateUserLocation(cb) {
     // get current user data
     readDynamoItem(getParams, user => {
       putParams.Item.userId = userId
-      if (user.milks)
-        putParams.Item.milks = user.milks
-      if (user.unit)
-        putParams.Item.unit = user.unit
+      if (user) {
+        if (user.milks)
+          putParams.Item.milks = user.milks
+        if (user.unit)
+          putParams.Item.unit = user.unit
+      }
       putParams.Item.countryCode = countryCode
       putParams.Item.postalCode = postalCode
       putParams.Item.city = city
@@ -80,6 +82,7 @@ function updateUserLocation(cb) {
     })
   })
   .catch((err) => {
+    console.log(err)
     cb(true)
   })
 }
@@ -108,38 +111,58 @@ const handlers = {
     if (isNaN(amount))
       this.emit(':tell', "Please indicate a correct number to add, for example: 'ask milky baby to add 60 oz'")
 
-    const currDate = new moment()
-
-    readDynamoItem(getParams, user => {
+    const ctx = this
+    
+    const insertMilkRecord = (user) => {
       let milks = []
       if (user && user.milks) {
         milks = user.milks
       }
-
+      
+      const currDate = new moment()
       const date = currDate.tz(user.timeZoneId).format('YYYY-MM-DD HH:mm')
 
       milks.push({ amount, unit: unit.value, date })
       putParams.Item.milks = milks
       putParams.Item.userId = userId
       putParams.Item.unit = unit.value
-      if (user.countryCode)
-        putParams.Item.countryCode = user.countryCode
-      if (user.postalCode)
-        putParams.Item.postalCode = user.postalCode
-      if (user.city)
-        putParams.Item.city = user.city
-      if (user.state)
-        putParams.Item.state = user.state
-      if (user.timeZoneId)
-        putParams.Item.timeZoneId = user.timeZoneId
-      if (user.lat)
-        putParams.Item.lat = user.lat
-      if (user.lng)
-        putParams.Item.lng = user.lng
+      if (user) {
+        if (user.countryCode)
+          putParams.Item.countryCode = user.countryCode
+        if (user.postalCode)
+          putParams.Item.postalCode = user.postalCode
+        if (user.city)
+          putParams.Item.city = user.city
+        if (user.state)
+          putParams.Item.state = user.state
+        if (user.timeZoneId)
+          putParams.Item.timeZoneId = user.timeZoneId
+        if (user.lat)
+          putParams.Item.lat = user.lat
+        if (user.lng)
+          putParams.Item.lng = user.lng
+      }
 
       putUser(putParams, result => {
-        this.emit(':tell', `${amount} ${unit.value} added.`)
+        ctx.emit(':tell', `${amount} ${unit.value} added.`)
       })
+    }
+    readDynamoItem(getParams, user => {
+      if (user === undefined || user === null || user.timeZoneId === undefined || user.timeZoneId === null) {
+        updateUserLocation.call(this, (err) => {
+          if (err) {
+            ctx.emit(':tell', `Error with Milky Baby!`)
+          } else {
+            readDynamoItem(getParams, user => {
+              insertMilkRecord(user)
+            })
+          }
+        })
+      } else {
+        readDynamoItem(getParams, user => {
+          insertMilkRecord(user)
+        })
+      }
     })
   },
 
@@ -205,6 +228,7 @@ function putUser(putParams, callback) {
     if (err) {
       console.error("Unable to PUT item. Error JSON:", JSON.stringify(err, null, 2))
     } else {
+      console.log('data from PUT', JSON.stringify(data, null, 2))
       callback(data)
     }
   })

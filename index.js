@@ -159,9 +159,7 @@ const handlers = {
           }
         })
       } else {
-        readDynamoItem(getParams, user => {
-          insertMilkRecord(user)
-        })
+        insertMilkRecord(user)
       }
     })
   },

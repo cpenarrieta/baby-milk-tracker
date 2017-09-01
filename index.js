@@ -109,7 +109,9 @@ const handlers = {
     const { amount: amountStr, unit } = this.event.request.intent.slots
     const amount = parseInt(amountStr.value, 10)
     if (isNaN(amount))
-      this.emit(':tell', "Please indicate a correct number to add, for example: 'ask milky baby to add 60 oz'")
+      this.emit(':tell', "Please indicate a correct number to add, for example: 'ask milky baby to add 60 oz.'")
+    if (!isValidUnit(unit.id))
+      this.emit(':tell', "Invalid unit measure, we only support ounce or milliliter.")
 
     const ctx = this
     
@@ -205,6 +207,13 @@ const handlers = {
   'AMAZON.StopIntent': function () {
     this.emit(':tell', 'Thank you for trying the Milky Baby Skill. Have a nice day!')
   },
+}
+
+function isValidUnit(unit) {
+  if (unit !== 'oz' || unit !== 'ml') {
+    return false
+  }
+  return true
 }
 
 function readDynamoItem(params, callback) {

@@ -228,6 +228,14 @@ function readDynamoItem(params, callback) {
   })
 }
 
+function mlToOz(amount) {
+  return amount * 0.033814
+}
+
+function ozToMl(amount) {
+  return amount * 29.5735
+}
+
 function putUser(putParams, callback) {
   const docClient = new AWS.DynamoDB.DocumentClient()
 

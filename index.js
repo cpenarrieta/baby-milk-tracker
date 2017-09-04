@@ -124,10 +124,10 @@ const handlers = {
       const currDate = new moment()
       const date = currDate.tz(user.timeZoneId).format('YYYY-MM-DD HH:mm')
 
-      milks.push({ amount, unit: unit.value, date })
+      milks.push({ amount, unit: unit.id, date })
       putParams.Item.milks = milks
       putParams.Item.userId = userId
-      putParams.Item.unit = unit.value
+      putParams.Item.unit = unit.id
       if (user) {
         if (user.countryCode)
           putParams.Item.countryCode = user.countryCode
@@ -180,7 +180,13 @@ const handlers = {
       user.milks.forEach((m, key) => {
         const dateItem = moment(m.date)
         if (today.day() === dateItem.day()) {
-          total += m.amount
+          if (m.unit === unit) {
+            total += m.amount
+          } else if (m.unit === 'ml' && unit === 'oz') {
+            total += mlToOz(m.amount)
+          } else if (m.unit === 'ml' && unit === 'oz') {
+            total += ozToMl(m.amount)
+          }
         }
 
         if (user.milks.length - 1 === key) {

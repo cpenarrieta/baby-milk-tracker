@@ -149,6 +149,7 @@ const handlers = {
         ctx.emit(':tell', `${amount} ${unit.value} added.`)
       })
     }
+
     readDynamoItem(getParams, user => {
       if (user === undefined || user === null || user.timeZoneId === undefined || user.timeZoneId === null) {
         updateUserLocation.call(this, (err) => {
@@ -195,11 +196,6 @@ const handlers = {
       })
       this.emit(':tell', `Your baby consumed about ${total} ${unit} today. The last feeding time was at ${lastFeefingTime}.`)
     })
-  },
-
-  'openIntent': function () {
-    const { state, birthday } = this.event.request.intent.slots
-    this.emit(':tell', `Opening Intent! you selected ${state.value} and ${birthday.value}`)
   },
 
   'AMAZON.HelpIntent': function () {

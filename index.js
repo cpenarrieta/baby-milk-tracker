@@ -23,6 +23,15 @@ let putParams = {
   }
 }
 
+const unitMeasures = {
+  ml: 'ml',
+  milliliter: 'ml',
+  milliliters: 'ml',
+  oz: 'oz',
+  ounce: 'oz',
+  ounces: 'oz',
+}
+
 AWS.config.update({
   region: AWSregion
 })
@@ -107,11 +116,13 @@ const handlers = {
     getParams.Key.userId = userId
 
     const { amount: amountStr, unit } = this.event.request.intent.slots
+    
     const amount = parseInt(amountStr.value, 10)
     if (isNaN(amount))
       this.emit(':tell', "Please indicate a correct number to add, for example: 'ask milky baby to add 60 oz.'")
-    if (!isValidUnit(unit.id))
-      this.emit(':tell', "Invalid unit measure, we only support ounce or milliliter.")
+    
+    if (!unitMeasures.hasOwnProperty(unit.value))
+      this.emit(':tell', "Invalid unit measure, we only support ounces or milliliters.")
 
     const ctx = this
     
@@ -124,10 +135,10 @@ const handlers = {
       const currDate = new moment()
       const date = currDate.tz(user.timeZoneId).format('YYYY-MM-DD HH:mm')
 
-      milks.push({ amount, unit: unit.id, date })
+      milks.push({ amount, unit: unitMeasures[unit.value], date })
       putParams.Item.milks = milks
       putParams.Item.userId = userId
-      putParams.Item.unit = unit.id
+      putParams.Item.unit = unitMeasures[unit.value]
       if (user) {
         if (user.countryCode)
           putParams.Item.countryCode = user.countryCode
@@ -146,7 +157,7 @@ const handlers = {
       }
 
       putUser(putParams, result => {
-        ctx.emit(':tell', `${amount} ${unit.value} added.`)
+        ctx.emit(':tell', `${amount} ${unitMeasures[unit.value]} added.`)
       })
     }
 
@@ -185,7 +196,7 @@ const handlers = {
             total += m.amount
           } else if (m.unit === 'ml' && unit === 'oz') {
             total += mlToOz(m.amount)
-          } else if (m.unit === 'ml' && unit === 'oz') {
+          } else if (m.unit === 'oz' && unit === 'ml') {
             total += ozToMl(m.amount)
           }
         }
@@ -194,7 +205,7 @@ const handlers = {
           lastFeefingTime = dateItem.format('h:mm A')
         }
       })
-      this.emit(':tell', `Your baby consumed about ${total} ${unit} today. The last feeding time was at ${lastFeefingTime}.`)
+      this.emit(':tell', `Your baby consumed about ${Math.round(total)} ${unit} today. The last feeding time was at ${lastFeefingTime}.`)
     })
   },
 
@@ -209,13 +220,6 @@ const handlers = {
   'AMAZON.StopIntent': function () {
     this.emit(':tell', 'Thank you for trying the Milky Baby Skill. Have a nice day!')
   },
-}
-
-function isValidUnit(unit) {
-  if (unit !== 'oz' || unit !== 'ml') {
-    return false
-  }
-  return true
 }
 
 function readDynamoItem(params, callback) {

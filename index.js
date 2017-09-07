@@ -7,21 +7,7 @@ const axios = require('axios')
 const AWSregion = 'us-east-1'
 const TABLE_USER = 'milky_baby_user'
 const SKILL_ID = 'amzn1.ask.skill.2cb7cf3a-c642-4db2-b5d2-a27c0cb1f387'
-
-let getParams = {
-  TableName: TABLE_USER,
-  Key: { 
-    userId: '',
-  }
-}
-
-let putParams = {
-  TableName: TABLE_USER,
-  Item: { 
-    userId: '',
-    unit: 'ml',
-  }
-}
+const DELETE_DAYS_LIMIT = 20
 
 const unitMeasures = {
   ml: 'ml',
@@ -36,7 +22,7 @@ AWS.config.update({
   region: AWSregion
 })
 
-function updateUserLocation(cb) {
+function updateUserLocation(callback) {
   const userId = this.event.session.user.userId
   const consentToken = this.event.session.user.permissions.consentToken
   const deviceId = this.event.context.System.device.deviceId
@@ -65,34 +51,16 @@ function updateUserLocation(cb) {
   })
   .then((response) => {
     timeZoneId = response.data.timeZoneId
-    getParams.Key.userId = userId
-
-    // get current user data
-    readDynamoItem(getParams, user => {
-      putParams.Item.userId = userId
-      if (user) {
-        if (user.milks)
-          putParams.Item.milks = user.milks
-        if (user.unit)
-          putParams.Item.unit = user.unit
-      }
-      putParams.Item.countryCode = countryCode
-      putParams.Item.postalCode = postalCode
-      putParams.Item.city = city
-      putParams.Item.state = state
-      putParams.Item.timeZoneId = timeZoneId
-      putParams.Item.lat = lat
-      putParams.Item.lng = lng
-
-      // update user data
+    readDynamoItem(userId, user => {
+      const putParams = Object.assign({}, user, { userId, countryCode, postalCode, city, state, timeZoneId, lat, lng })
       putUser(putParams, result => {
-        cb(false)
+        callback(false)
       })
     })
   })
   .catch((err) => {
-    console.log(err)
-    cb(true)
+    console.error('ERROR during updateUserLocation', err)
+    callback(true)
   })
 }
 
@@ -112,19 +80,16 @@ const handlers = {
   },
 
   'SubmitMilkIntent': function () {
+    const ctx = this
     const userId = this.event.session.user.userId
-    getParams.Key.userId = userId
-
     const { amount: amountStr, unit } = this.event.request.intent.slots
-    
     const amount = parseInt(amountStr.value, 10)
+    
     if (isNaN(amount))
       this.emit(':tell', "Please indicate a correct number to add, for example: 'ask milky baby to add 60 oz.'")
     
     if (!unitMeasures.hasOwnProperty(unit.value))
       this.emit(':tell', "Invalid unit measure, we only support ounces or milliliters.")
-
-    const ctx = this
     
     const insertMilkRecord = (user) => {
       let milks = []
@@ -134,40 +99,21 @@ const handlers = {
       
       const currDate = new moment()
       const date = currDate.tz(user.timeZoneId).format('YYYY-MM-DD HH:mm')
-
       milks.push({ amount, unit: unitMeasures[unit.value], date })
-      putParams.Item.milks = milks
-      putParams.Item.userId = userId
-      putParams.Item.unit = unitMeasures[unit.value]
-      if (user) {
-        if (user.countryCode)
-          putParams.Item.countryCode = user.countryCode
-        if (user.postalCode)
-          putParams.Item.postalCode = user.postalCode
-        if (user.city)
-          putParams.Item.city = user.city
-        if (user.state)
-          putParams.Item.state = user.state
-        if (user.timeZoneId)
-          putParams.Item.timeZoneId = user.timeZoneId
-        if (user.lat)
-          putParams.Item.lat = user.lat
-        if (user.lng)
-          putParams.Item.lng = user.lng
-      }
 
+      const putParams = Object.assign({}, user, { userId, milks, unit: unitMeasures[unit.value] })
       putUser(putParams, result => {
         ctx.emit(':tell', `${amount} ${unitMeasures[unit.value]} added.`)
       })
     }
 
-    readDynamoItem(getParams, user => {
+    readDynamoItem(userId, user => {
       if (user === undefined || user === null || user.timeZoneId === undefined || user.timeZoneId === null) {
         updateUserLocation.call(this, (err) => {
           if (err) {
             ctx.emit(':tell', `Error with Milky Baby!`)
           } else {
-            readDynamoItem(getParams, user => {
+            readDynamoItem(userId, user => {
               insertMilkRecord(user)
             })
           }
@@ -180,17 +126,18 @@ const handlers = {
 
   'WhatsMyStatusIntent': function () {
     const userId = this.event.session.user.userId
-    getParams.Key.userId = userId
 
-    readDynamoItem(getParams, user => {
+    readDynamoItem(userId, user => {
       const date = new moment()
       const today = date.tz(user.timeZoneId)
       const unit = user.unit
       let lastFeefingTime = ''
       let total = 0
+      const itemsToDelete = []
 
       user.milks.forEach((m, key) => {
         const dateItem = moment(m.date)
+
         if (today.day() === dateItem.day()) {
           if (m.unit === unit) {
             total += m.amount
@@ -201,11 +148,18 @@ const handlers = {
           }
         }
 
+        if (today.diff(dateItem, 'days') > DELETE_DAYS_LIMIT) {
+          itemsToDelete.push(key)
+        }
+
         if (user.milks.length - 1 === key) {
           lastFeefingTime = dateItem.format('h:mm A')
         }
       })
-      this.emit(':tell', `Your baby consumed about ${Math.round(total)} ${unit} today. The last feeding time was at ${lastFeefingTime}.`)
+
+      removeOldItems(user, itemsToDelete,  () => {
+        this.emit(':tell', `Your baby consumed about ${Math.round(total)} ${unit} today. The last feeding time was at ${lastFeefingTime}.`)
+      })
     })
   },
 
@@ -222,10 +176,15 @@ const handlers = {
   },
 }
 
-function readDynamoItem(params, callback) {
+function readDynamoItem(userId, callback) {
+  const req = {
+    TableName: TABLE_USER,
+    Key: { userId }
+  }
+
   const docClient = new AWS.DynamoDB.DocumentClient()
   
-  docClient.get(params, (err, data) => {
+  docClient.get(req, (err, data) => {
     if (err) {
       console.error("Unable to GET item. Error JSON:", JSON.stringify(err, null, 2))
     } else {
@@ -235,16 +194,29 @@ function readDynamoItem(params, callback) {
 }
 
 function putUser(putParams, callback) {
+  const req = {
+    TableName: TABLE_USER,
+    Item: putParams
+  }
   const docClient = new AWS.DynamoDB.DocumentClient()
 
-  docClient.put(putParams, (err, data) => {
+  docClient.put(req, (err, data) => {
     if (err) {
       console.error("Unable to PUT item. Error JSON:", JSON.stringify(err, null, 2))
     } else {
-      console.log('data from PUT', JSON.stringify(data, null, 2))
       callback(data)
     }
   })
+}
+
+function removeOldItems(user, itemsToDelete, callback) {
+  if (itemsToDelete.length === 0)
+    callback()
+
+  const putParams = user
+  putParams.milks.splice(0, itemsToDelete.length)
+
+  putUser(putParams, callback)
 }
 
 function mlToOz(amount) {

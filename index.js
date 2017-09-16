@@ -1,11 +1,10 @@
 const Alexa = require('alexa-sdk')
-const AWS = require('aws-sdk')
 const moment = require('moment-timezone')
 const https = require('https')
 const axios = require('axios')
+const { mlToOz, ozToMl } = require('./conversions')
+const { readDynamoItem, putUser } = require('./dynamoHelper')
 
-const AWSregion = 'us-east-1'
-const TABLE_USER = 'milky_baby_user'
 const SKILL_ID = 'amzn1.ask.skill.2cb7cf3a-c642-4db2-b5d2-a27c0cb1f387'
 const DELETE_DAYS_LIMIT = 20
 
@@ -17,10 +16,6 @@ const unitMeasures = {
   ounce: 'oz',
   ounces: 'oz',
 }
-
-AWS.config.update({
-  region: AWSregion
-})
 
 function updateUserLocation(callback) {
   const userId = this.event.session.user.userId
@@ -176,39 +171,6 @@ const handlers = {
   },
 }
 
-function readDynamoItem(userId, callback) {
-  const req = {
-    TableName: TABLE_USER,
-    Key: { userId }
-  }
-
-  const docClient = new AWS.DynamoDB.DocumentClient()
-  
-  docClient.get(req, (err, data) => {
-    if (err) {
-      console.error("Unable to GET item. Error JSON:", JSON.stringify(err, null, 2))
-    } else {
-      callback(data.Item)
-    }
-  })
-}
-
-function putUser(putParams, callback) {
-  const req = {
-    TableName: TABLE_USER,
-    Item: putParams
-  }
-  const docClient = new AWS.DynamoDB.DocumentClient()
-
-  docClient.put(req, (err, data) => {
-    if (err) {
-      console.error("Unable to PUT item. Error JSON:", JSON.stringify(err, null, 2))
-    } else {
-      callback(data)
-    }
-  })
-}
-
 function removeOldItems(user, itemsToDelete, callback) {
   if (itemsToDelete.length === 0)
     callback()
@@ -217,14 +179,6 @@ function removeOldItems(user, itemsToDelete, callback) {
   putParams.milks.splice(0, itemsToDelete.length)
 
   putUser(putParams, callback)
-}
-
-function mlToOz(amount) {
-  return amount * 0.033814
-}
-
-function ozToMl(amount) {
-  return amount * 29.5735
 }
 
 exports.handler = function(event, context, callback) {

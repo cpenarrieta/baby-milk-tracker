@@ -7,7 +7,7 @@ AWS.config.update({
   region: AWSregion
 })
 
-function readDynamoItem(userId, callback) {
+function getUser(userId, callback) {
   const req = {
     TableName: TABLE_USER,
     Key: { userId }
@@ -40,4 +40,4 @@ function putUser(putParams, callback) {
   })
 }
 
-module.exports = { readDynamoItem, putUser }
+module.exports = { getUser, putUser }

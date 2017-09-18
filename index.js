@@ -3,7 +3,7 @@ const moment = require('moment-timezone')
 const https = require('https')
 const axios = require('axios')
 const { mlToOz, ozToMl } = require('./conversions')
-const { readDynamoItem, putUser } = require('./dynamoHelper')
+const { getUser, putUser } = require('./dynamoHelper')
 
 const SKILL_ID = 'amzn1.ask.skill.2cb7cf3a-c642-4db2-b5d2-a27c0cb1f387'
 const DELETE_DAYS_LIMIT = 20
@@ -46,7 +46,7 @@ function updateUserLocation(callback) {
   })
   .then((response) => {
     timeZoneId = response.data.timeZoneId
-    readDynamoItem(userId, user => {
+    getUser(userId, user => {
       const putParams = Object.assign({}, user, { userId, countryCode, postalCode, city, state, timeZoneId, lat, lng })
       putUser(putParams, result => {
         callback(false)
@@ -102,13 +102,13 @@ const handlers = {
       })
     }
 
-    readDynamoItem(userId, user => {
+    getUser(userId, user => {
       if (user === undefined || user === null || user.timeZoneId === undefined || user.timeZoneId === null) {
         updateUserLocation.call(this, (err) => {
           if (err) {
             ctx.emit(':tell', `Error with Milky Baby!`)
           } else {
-            readDynamoItem(userId, user => {
+            getUser(userId, user => {
               insertMilkRecord(user)
             })
           }
@@ -122,7 +122,7 @@ const handlers = {
   'WhatsMyStatusIntent': function () {
     const userId = this.event.session.user.userId
 
-    readDynamoItem(userId, user => {
+    getUser(userId, user => {
       const date = new moment()
       const today = date.tz(user.timeZoneId)
       const unit = user.unit

@@ -10,9 +10,13 @@ const DELETE_DAYS_LIMIT = 20
 
 const unitMeasures = {
   ml: 'ml',
+  "m.l.": 'ml',
+  "m.l": 'ml',
   milliliter: 'ml',
   milliliters: 'ml',
   oz: 'oz',
+  "o.z.": 'oz',
+  "o.z": 'oz',
   ounce: 'oz',
   ounces: 'oz',
 }

@@ -7,6 +7,11 @@ const { getUser, putUser } = require('./dynamoHelper')
 
 const SKILL_ID = 'amzn1.ask.skill.2cb7cf3a-c642-4db2-b5d2-a27c0cb1f387'
 const DELETE_DAYS_LIMIT = 20
+const POSTAL_REQUIRED_ERROR = 'POSTAL_REQUIRED_ERROR'
+const welcomeMessage = `Welcome to the Milky Baby skill, add your feeding baby milk amount to your account by saying for example: 
+  'add 60 oz'. This will save this data to your account and we we will provide you
+  summarized information by saying: 'what's my status'.
+  Thanks for using Milky Baby.`
 
 const unitMeasures = {
   ml: 'ml',
@@ -37,6 +42,10 @@ function updateUserLocation(callback) {
     headers: { 'Authorization': `Bearer ${consentToken}` }
   })
   .then((response) => {
+    if (!response.data || !response.data.countryCode || !response.data.postalCode) {
+      callback(POSTAL_REQUIRED_ERROR)
+    }
+
     countryCode = response.data.countryCode
     postalCode = response.data.postalCode
     return axios.get(`https://maps.googleapis.com/maps/api/geocode/json?address=${countryCode},${postalCode}&key=${process.env.GOOGLE_MAPS_KEY}`)
@@ -68,12 +77,13 @@ const handlers = {
     const ctx = this
     updateUserLocation.call(this, (err) => {
       if (err) {
-        ctx.emit(':tell', `Error with Milky Baby!`)
+        if (err === POSTAL_REQUIRED_ERROR) {
+          ctx.emit(':tell', `Please grant device location settings permissions to the skill in order to get your current time.`)
+        } else {
+          ctx.emit(':tell', `Error with Milky Baby skill, please try again`)
+        }
       } else {
-        ctx.emit(':tell', `Welcome to the Milky Baby Skill, add your feeding baby milk amount to your account by saying for example: 
-          'ask milky baby to add 60 oz'. This will save this data to your account and we we will provide you
-          summarized information by saying: 'ask milky baby for a status'.
-          Thanks for using Milky Baby.`)
+        ctx.emit(':ask', welcomeMessage, 'Please say that again?')
       }
     })
   },
@@ -85,7 +95,7 @@ const handlers = {
     const amount = parseInt(amountStr.value, 10)
     
     if (isNaN(amount))
-      this.emit(':tell', "Please indicate a correct number to add, for example: 'ask milky baby to add 60 oz.'")
+      this.emit(':tell', "Please indicate a correct number to add, for example: 'add 60 ounces.'")
     
     if (!unitMeasures.hasOwnProperty(unit.value))
       this.emit(':tell', "Invalid unit measure, we only support ounces or milliliters.")
@@ -110,7 +120,11 @@ const handlers = {
       if (user === undefined || user === null || user.timeZoneId === undefined || user.timeZoneId === null) {
         updateUserLocation.call(this, (err) => {
           if (err) {
-            ctx.emit(':tell', `Error with Milky Baby!`)
+            if (err === POSTAL_REQUIRED_ERROR) {
+              ctx.emit(':tell', `Please grant device location settings permissions to the skill in order to get your current time.`)
+            } else {
+              ctx.emit(':tell', `Error with Milky Baby skill, please try again`)
+            }
           } else {
             getUser(userId, user => {
               insertMilkRecord(user)
@@ -163,7 +177,7 @@ const handlers = {
   },
 
   'AMAZON.HelpIntent': function () {
-    this.emit(':tell', 'Welcome to the Milky Baby Skill!')
+    this.emit(':ask', welcomeMessage, 'Please say that again?')
   },
 
   'AMAZON.CancelIntent': function () {
@@ -173,6 +187,10 @@ const handlers = {
   'AMAZON.StopIntent': function () {
     this.emit(':tell', 'Thank you for trying the Milky Baby Skill. Have a nice day!')
   },
+
+  'Unhandled': function () {
+    this.emit(':ask', welcomeMessage, 'Please say that again?')
+}
 }
 
 function removeOldItems(user, itemsToDelete, callback) {

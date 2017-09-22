@@ -1,13 +1,13 @@
 const Alexa = require('alexa-sdk')
 const moment = require('moment-timezone')
-const https = require('https')
-const axios = require('axios')
+
 const { mlToOz, ozToMl } = require('./conversions')
 const { getUser, putUser } = require('./dynamoHelper')
+const updateUserLocation = require('./updateUserLocation')
+const { POSTAL_REQUIRED_ERROR } = require('./errorCodes')
 
 const SKILL_ID = 'amzn1.ask.skill.2cb7cf3a-c642-4db2-b5d2-a27c0cb1f387'
 const DELETE_DAYS_LIMIT = 20
-const POSTAL_REQUIRED_ERROR = 'POSTAL_REQUIRED_ERROR'
 const welcomeMessage = `Welcome to the Milky Baby skill, add your feeding baby milk amount to your account by saying for example: 
   'add 60 oz'. This will save this data to your account and we we will provide you
   summarized information by saying: 'what's my status'.
@@ -24,52 +24,6 @@ const unitMeasures = {
   "o.z": 'oz',
   ounce: 'oz',
   ounces: 'oz',
-}
-
-function updateUserLocation(callback) {
-  const userId = this.event.session.user.userId
-  const consentToken = this.event.session.user.permissions.consentToken
-  const deviceId = this.event.context.System.device.deviceId
-  let countryCode = ''
-  let postalCode = ''
-  let lat = 0
-  let lng = 0
-  let city = ''
-  let state = ''
-  let timeZoneId = ''
-
-  axios.get(`https://api.amazonalexa.com/v1/devices/${deviceId}/settings/address/countryAndPostalCode`, {
-    headers: { 'Authorization': `Bearer ${consentToken}` }
-  })
-  .then((response) => {
-    if (!response.data || !response.data.countryCode || !response.data.postalCode) {
-      callback(POSTAL_REQUIRED_ERROR)
-    }
-
-    countryCode = response.data.countryCode
-    postalCode = response.data.postalCode
-    return axios.get(`https://maps.googleapis.com/maps/api/geocode/json?address=${countryCode},${postalCode}&key=${process.env.GOOGLE_MAPS_KEY}`)
-  })
-  .then((response) => {
-    city = response.data.results[0].address_components[1].short_name
-    state = response.data.results[0].address_components[3].short_name
-    lat = response.data.results[0].geometry.location.lat
-    lng = response.data.results[0].geometry.location.lng
-    return axios.get(`https://maps.googleapis.com/maps/api/timezone/json?location=${lat},${lng}&timestamp=${moment().unix()}&key=${process.env.GOOGLE_MAPS_KEY}`)
-  })
-  .then((response) => {
-    timeZoneId = response.data.timeZoneId
-    getUser(userId, user => {
-      const putParams = Object.assign({}, user, { userId, countryCode, postalCode, city, state, timeZoneId, lat, lng })
-      putUser(putParams, result => {
-        callback(false)
-      })
-    })
-  })
-  .catch((err) => {
-    console.error('ERROR during updateUserLocation', err)
-    callback(true)
-  })
 }
 
 const handlers = {
@@ -190,7 +144,7 @@ const handlers = {
 
   'Unhandled': function () {
     this.emit(':ask', welcomeMessage, 'Please say that again?')
-}
+  }
 }
 
 function removeOldItems(user, itemsToDelete, callback) {

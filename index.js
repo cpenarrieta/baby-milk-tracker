@@ -9,7 +9,7 @@ const { POSTAL_REQUIRED_ERROR } = require('./errorCodes')
 const SKILL_ID = 'amzn1.ask.skill.2cb7cf3a-c642-4db2-b5d2-a27c0cb1f387'
 const DELETE_DAYS_LIMIT = 20
 const welcomeMessage = `Welcome to the Milky Baby skill, add your feeding baby milk amount to your account by saying for example: 
-  'add 60 oz'. This will save this data to your account and we we will provide you
+  'add 3 ounces'. This will save this data to your account and we we will provide you
   summarized information by saying: 'what's my status'.
   Thanks for using Milky Baby.`
 

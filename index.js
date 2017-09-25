@@ -46,12 +46,13 @@ const handlers = {
     const ctx = this
     const userId = this.event.session.user.userId
     const { amount: amountStr, unit } = this.event.request.intent.slots
+    const unitStr = unit.value && unit.value.replace(/(?!\w|\s)./g, '')
     const amount = parseInt(amountStr.value, 10)
     
     if (isNaN(amount))
       this.emit(':tell', "Please indicate a correct number to add, for example: 'add 60 ounces.'")
     
-    if (!unitMeasures.hasOwnProperty(unit.value))
+    if (!unitMeasures.hasOwnProperty(unitStr))
       this.emit(':tell', "Invalid unit measure, we only support ounces or milliliters.")
     
     const insertMilkRecord = (user) => {
@@ -62,11 +63,11 @@ const handlers = {
       
       const currDate = new moment()
       const date = currDate.tz(user.timeZoneId).format('YYYY-MM-DD HH:mm')
-      milks.push({ amount, unit: unitMeasures[unit.value], date })
+      milks.push({ amount, unit: unitMeasures[unitStr], date })
 
-      const putParams = Object.assign({}, user, { userId, milks, unit: unitMeasures[unit.value] })
+      const putParams = Object.assign({}, user, { userId, milks, unit: unitMeasures[unitStr] })
       putUser(putParams, result => {
-        ctx.emit(':tell', `${amount} ${unitMeasures[unit.value]} added.`)
+        ctx.emit(':tell', `${amount} ${unitMeasures[unitStr]} added.`)
       })
     }
 

@@ -47,7 +47,7 @@ const handlers = {
     const userId = this.event.session.user.userId
     const { amount: amountStr, unit } = this.event.request.intent.slots
     const unitStr = unit.value && unit.value.replace(/(?!\w|\s)./g, '')
-    const amount = parseInt(amountStr.value, 10)
+    const amount = amountStr.value && parseInt(amountStr.value.replace(/(?!\w|\s)./g, ''), 10)
     
     if (isNaN(amount))
       this.emit(':tell', "Please indicate a correct number to add, for example: 'add 60 ounces.'")

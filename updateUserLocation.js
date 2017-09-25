@@ -6,7 +6,7 @@ const { POSTAL_REQUIRED_ERROR } = require('./errorCodes')
 
 function updateUserLocation(callback) {
   const userId = this.event.session.user.userId
-  const consentToken = this.event.session.user.permissions.consentToken
+  const consentToken = this.event.session.user.permissions && this.event.session.user.permissions.consentToken
   const deviceId = this.event.context.System.device.deviceId
   let countryCode = ''
   let postalCode = ''
@@ -46,7 +46,11 @@ function updateUserLocation(callback) {
   })
   .catch((err) => {
     console.error('ERROR during updateUserLocation', err)
-    callback(true)
+    if (!consentToken) {
+      callback(POSTAL_REQUIRED_ERROR)
+    } else {
+      callback(true)
+    }
   })
 }
 

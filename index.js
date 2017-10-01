@@ -46,14 +46,14 @@ const handlers = {
     const ctx = this
     const userId = this.event.session.user.userId
     const { amount: amountStr, unit } = this.event.request.intent.slots
-    const unitStr = unit.value && unit.value.replace(/(?!\w|\s)./g, '')
+    const unitStr = unit.value && unit.value.replace(/(?!\w|\s)./g, '').toLowerCase()
     const amount = amountStr.value && parseInt(amountStr.value.replace(/(?!\w|\s)./g, ''), 10)
     
-    if (isNaN(amount))
+    if (isNaN(amount)) {
       this.emit(':tell', "Please indicate a correct number to add, for example: 'add 60 ounces.'")
-    
-    if (!unitMeasures.hasOwnProperty(unitStr))
+    } else if (!unitMeasures.hasOwnProperty(unitStr)) {
       this.emit(':tell', "Invalid unit measure, we only support ounces or milliliters.")
+    }
     
     const insertMilkRecord = (user) => {
       let milks = []

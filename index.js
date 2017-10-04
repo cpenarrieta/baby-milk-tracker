@@ -56,6 +56,7 @@ const handlers = {
     }
     
     const insertMilkRecord = (user) => {
+      const unit = (unitMeasures[unitStr] || user.unit) || unitStr
       let milks = []
       if (user && user.milks) {
         milks = user.milks
@@ -63,11 +64,11 @@ const handlers = {
       
       const currDate = new moment()
       const date = currDate.tz(user.timeZoneId).format('YYYY-MM-DD HH:mm')
-      milks.push({ amount, unit: unitMeasures[unitStr], date })
+      milks.push({ amount, unit, date })
 
-      const putParams = Object.assign({}, user, { userId, milks, unit: unitMeasures[unitStr] })
+      const putParams = Object.assign({}, user, { userId, milks, unit })
       putUser(putParams, result => {
-        ctx.emit(':tell', `${amount} ${unitMeasures[unitStr]} added.`)
+        ctx.emit(':tell', `${amount} ${unit} added.`)
       })
     }
 

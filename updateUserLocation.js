@@ -16,6 +16,10 @@ function updateUserLocation(callback) {
   let state = ''
   let timeZoneId = ''
 
+  if (!consentToken || !deviceId) {
+    callback(POSTAL_REQUIRED_ERROR)
+  }
+
   axios.get(`https://api.amazonalexa.com/v1/devices/${deviceId}/settings/address/countryAndPostalCode`, {
     headers: { 'Authorization': `Bearer ${consentToken}` }
   })
@@ -55,7 +59,7 @@ function updateUserLocation(callback) {
   })
   .catch((err) => {
     console.error('ERROR during updateUserLocation', err)
-    if (!consentToken) {
+    if (!consentToken || !deviceId) {
       callback(POSTAL_REQUIRED_ERROR)
     } else {
       callback(true)

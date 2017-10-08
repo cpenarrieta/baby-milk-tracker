@@ -1,4 +1,5 @@
 const AWS = require('aws-sdk')
+const moment = require('moment-timezone')
 
 const AWSregion = 'us-east-1'
 const TABLE_USER = 'milky_baby_user'
@@ -25,9 +26,11 @@ function getUser(userId, callback) {
 }
 
 function putUser(putParams, callback) {
+  const updatedDate = (new moment()).format('YYYY-MM-DD HH:mm')
   const req = {
     TableName: TABLE_USER,
-    Item: putParams
+    Item: Object.assign({}, putParams, { updatedDate }),
+    ReturnValues: 'ALL_OLD'
   }
   const docClient = new AWS.DynamoDB.DocumentClient()
 

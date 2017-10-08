@@ -12,6 +12,8 @@ const welcomeMessage = `Welcome to the Milky Baby skill, add your feeding baby m
   'add 3 ounces'. This will save this data to your account and we we will provide you
   summarized information by saying: 'what's my status'.
   Thanks for using Milky Baby.`
+const milkEmptyMessage = `You havent added any milk amount yet. Add your feeding baby milk amount to your account by saying for example: 'add 3 ounces'.`
+const againMessage = 'Please say that again?'
 
 const unitMeasures = {
   ml: 'ml',
@@ -37,7 +39,7 @@ const handlers = {
           ctx.emit(':tell', `Error with Milky Baby skill, please try again`)
         }
       } else {
-        ctx.emit(':ask', welcomeMessage, 'Please say that again?')
+        ctx.emit(':ask', welcomeMessage, againMessage)
       }
     })
   },
@@ -104,36 +106,43 @@ const handlers = {
       let total = 0
       const itemsToDelete = []
 
-      user.milks.forEach((m, key) => {
-        const dateItem = moment(m.date)
-
-        if (today.day() === dateItem.day()) {
-          if (m.unit === unit) {
-            total += m.amount
-          } else if (m.unit === 'ml' && unit === 'oz') {
-            total += mlToOz(m.amount)
-          } else if (m.unit === 'oz' && unit === 'ml') {
-            total += ozToMl(m.amount)
+      if (!user.milks) {
+        this.emit(':ask', milkEmptyMessage, againMessage)
+      } else {
+        user.milks.forEach((m, key) => {
+          const dateItem = moment(m.date)
+  
+          if (today.day() === dateItem.day()) {
+            if (m.unit === unit) {
+              total += m.amount
+            } else if (m.unit === 'ml' && unit === 'oz') {
+              total += mlToOz(m.amount)
+            } else if (m.unit === 'oz' && unit === 'ml') {
+              total += ozToMl(m.amount)
+            }
           }
-        }
-
-        if (today.diff(dateItem, 'days') > DELETE_DAYS_LIMIT) {
-          itemsToDelete.push(key)
-        }
-
-        if (user.milks.length - 1 === key) {
-          lastFeefingTime = dateItem.format('h:mm A')
-        }
-      })
-
-      removeOldItems(user, itemsToDelete,  () => {
-        this.emit(':tell', `Your baby consumed about ${Math.round(total)} ${unit} today. The last feeding time was at ${lastFeefingTime}.`)
-      })
+  
+          if (today.diff(dateItem, 'days') > DELETE_DAYS_LIMIT) {
+            itemsToDelete.push(key)
+          }
+  
+          if (user.milks.length - 1 === key) {
+            lastFeefingTime = dateItem.format('h:mm A')
+          }
+        })
+  
+        removeOldItems(user, itemsToDelete,  () => {
+          if (total <= 0 || !lastFeefingTime)
+            this.emit(':ask', milkEmptyMessage, againMessage)
+          else
+            this.emit(':tell', `Your baby consumed about ${Math.round(total)} ${unit} today. The last feeding time was at ${lastFeefingTime}.`)
+        })
+      }
     })
   },
 
   'AMAZON.HelpIntent': function () {
-    this.emit(':ask', welcomeMessage, 'Please say that again?')
+    this.emit(':ask', welcomeMessage, againMessage)
   },
 
   'AMAZON.CancelIntent': function () {
@@ -145,7 +154,7 @@ const handlers = {
   },
 
   'Unhandled': function () {
-    this.emit(':ask', welcomeMessage, 'Please say that again?')
+    this.emit(':ask', welcomeMessage, againMessage)
   }
 }
 

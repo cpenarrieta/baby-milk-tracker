@@ -46,8 +46,8 @@ function send(input, callback) {
           return originalRequire.apply(this, arguments)
         }
       }
-      var lambda = require('../index')
-      var event = require(`./${input}.json`)
+      var lambda = require('../../index')
+      var event = require(`../${input}.json`)
       lambda.handler(event, context(callback))
     }
   })

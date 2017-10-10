@@ -1,4 +1,5 @@
-const sendIntent = require('./send-intent')
+const sendIntent = require('./_utils/send-intent')
+const { incorrectNumberMessage, invalidUnitMessage } = require('../messages')
 
 test('submitMilkIntent should add 100 ml', (done) => {
   sendIntent('submitMilkIntent', (err, res) => {
@@ -11,7 +12,7 @@ test('submitMilkIntent should add 100 ml', (done) => {
 test('submitMilkIntent should validate number', (done) => {
   sendIntent('submitMilkIntent-wrong-number', (err, res) => {
     const outputText = err ? 'error' : res.response.outputSpeech.ssml
-    expect(outputText).toBe("<speak> Please indicate a correct number to add, for example: 'add 60 ounces.' </speak>")
+    expect(outputText).toBe(`<speak> ${incorrectNumberMessage} </speak>`)
     done()
   })
 })
@@ -19,7 +20,7 @@ test('submitMilkIntent should validate number', (done) => {
 test('submitMilkIntent should validate unit', (done) => {
   sendIntent('submitMilkIntent-wrong-unit', (err, res) => {
     const outputText = err ? 'error' : res.response.outputSpeech.ssml
-    expect(outputText).toBe("<speak> Invalid unit measure, we only support ounces or milliliters. </speak>")
+    expect(outputText).toBe(`<speak> ${invalidUnitMessage} </speak>`)
     done()
   })
 })

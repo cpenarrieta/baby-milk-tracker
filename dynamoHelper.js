@@ -2,7 +2,7 @@ const AWS = require('aws-sdk')
 const moment = require('moment-timezone')
 
 const AWSregion = 'us-east-1'
-const TABLE_USER = 'milky_baby_user'
+const TABLE_USER = process.env.ENV === 'PROD' ? 'milky_baby_user' : 'milky_baby_user_STAGING'
 
 AWS.config.update({
   region: AWSregion

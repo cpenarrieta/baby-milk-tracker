@@ -17,6 +17,7 @@ function updateUserLocation(callback) {
   let timeZoneId = ''
 
   if (!consentToken || !deviceId) {
+    console.error('ERROR updateUserLocation.POSTAL_REQUIRED_ERROR', consentToken, deviceId)
     callback(POSTAL_REQUIRED_ERROR)
   }
 
@@ -25,6 +26,7 @@ function updateUserLocation(callback) {
   })
   .then((response) => {
     if (!response.data || !response.data.countryCode || !response.data.postalCode) {
+      console.error('ERROR updateUserLocation.POSTAL_REQUIRED_ERROR', consentToken, deviceId, response.data)
       callback(POSTAL_REQUIRED_ERROR)
     } else {
       countryCode = response.data.countryCode
@@ -35,6 +37,7 @@ function updateUserLocation(callback) {
   .then((response) => {
     if (!response.data || !response.data.results || !response.data.results[0] || 
       !response.data.results[0].address_components || !response.data.results[0].geometry) {
+      console.error('ERROR updateUserLocation.GOOGLE_MAP_GEOCODE_EMPTY_RESULT', response)
       callback(GOOGLE_MAP_GEOCODE_EMPTY_RESULT)
     } else {
       city = response.data.results[0].address_components[1].short_name
@@ -46,6 +49,7 @@ function updateUserLocation(callback) {
   })
   .then((response) => {
     if (!response.data || !response.data.timeZoneId) {
+      console.error('ERROR updateUserLocation.GOOGLE_MAP_TIMEZONE_EMPTY_RESULT', response)
       callback(GOOGLE_MAP_TIMEZONE_EMPTY_RESULT)
     } else {
       timeZoneId = response.data.timeZoneId
@@ -58,7 +62,7 @@ function updateUserLocation(callback) {
     }
   })
   .catch((err) => {
-    console.error('ERROR during updateUserLocation', err)
+    console.error('ERROR updateUserLocation.POSTAL_REQUIRED_ERROR', err)
     if (!consentToken || !deviceId) {
       callback(POSTAL_REQUIRED_ERROR)
     } else {

@@ -6,9 +6,15 @@
   "repository": "https://github.com/cpenarrieta/baby-milk-tracker.git",
   "author": "Cristian Penarrieta <cristian.penarrieta@gmail.com>",
   "license": "ISC",
+  "scripts": {
+    "test": "jest"
+  },
   "dependencies": {
     "alexa-sdk": "1.0.14",
     "axios": "^0.16.2",
     "moment-timezone": "^0.5.13"
+  },
+  "devDependencies": {
+    "jest": "^21.2.1"
   }
 }

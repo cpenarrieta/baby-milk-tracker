@@ -5,15 +5,19 @@ const { mlToOz, ozToMl } = require('./conversions')
 const { getUser, putUser } = require('./dynamoHelper')
 const updateUserLocation = require('./updateUserLocation')
 const { POSTAL_REQUIRED_ERROR } = require('./errorCodes')
+const {
+  welcomeMessage,
+  milkEmptyMessage,
+  againMessage,
+  grantDeviceLocationMessage,
+  errorMilkyBabyMessage,
+  invalidUnitMessage,
+  incorrectNumberMessage,
+  thankYouMessage
+} = require('./messages')
 
-const SKILL_ID = 'amzn1.ask.skill.2cb7cf3a-c642-4db2-b5d2-a27c0cb1f387'
+const SKILL_ID = process.env.SKILL_ID
 const DELETE_DAYS_LIMIT = 20
-const welcomeMessage = `Welcome to the Milky Baby skill, add your feeding baby milk amount to your account by saying for example: 
-  'add 3 ounces'. This will save this data to your account and we we will provide you
-  summarized information by saying: 'what's my status'.
-  Thanks for using Milky Baby.`
-const milkEmptyMessage = `You havent added any milk amount yet. Add your feeding baby milk amount to your account by saying for example: 'add 3 ounces'.`
-const againMessage = 'Please say that again?'
 
 const unitMeasures = {
   ml: 'ml',
@@ -34,9 +38,9 @@ const handlers = {
     updateUserLocation.call(this, (err) => {
       if (err) {
         if (err === POSTAL_REQUIRED_ERROR) {
-          ctx.emit(':tell', `Please grant device location settings permissions to the skill in order to get your current time.`)
+          ctx.emit(':tell', grantDeviceLocationMessage)
         } else {
-          ctx.emit(':tell', `Error with Milky Baby skill, please try again`)
+          ctx.emit(':tell', errorMilkyBabyMessage)
         }
       } else {
         ctx.emit(':ask', welcomeMessage, againMessage)
@@ -52,47 +56,47 @@ const handlers = {
     const amount = amountStr.value && parseInt(amountStr.value.replace(/(?!\w|\s)./g, ''), 10)
     
     if (isNaN(amount)) {
-      this.emit(':tell', "Please indicate a correct number to add, for example: 'add 60 ounces.'")
+      this.emit(':tell', incorrectNumberMessage)
     } else if (!unitMeasures.hasOwnProperty(unitStr)) {
-      this.emit(':tell', "Invalid unit measure, we only support ounces or milliliters.")
-    }
-    
-    const insertMilkRecord = (user) => {
-      const unit = (unitMeasures[unitStr] || user.unit) || unitStr
-      let milks = []
-      if (user && user.milks) {
-        milks = user.milks
+      this.emit(':tell', invalidUnitMessage)
+    } else {
+      const insertMilkRecord = (user) => {
+        const unit = (unitMeasures[unitStr] || user.unit) || unitStr
+        let milks = []
+        if (user && user.milks) {
+          milks = user.milks
+        }
+        
+        const currDate = new moment()
+        const date = currDate.tz(user.timeZoneId).format('YYYY-MM-DD HH:mm')
+        milks.push({ amount, unit, date })
+  
+        const putParams = Object.assign({}, user, { userId, milks, unit })
+        putUser(putParams, result => {
+          ctx.emit(':tell', `${amount} ${unit} added.`)
+        })
       }
-      
-      const currDate = new moment()
-      const date = currDate.tz(user.timeZoneId).format('YYYY-MM-DD HH:mm')
-      milks.push({ amount, unit, date })
-
-      const putParams = Object.assign({}, user, { userId, milks, unit })
-      putUser(putParams, result => {
-        ctx.emit(':tell', `${amount} ${unit} added.`)
+  
+      getUser(userId, user => {
+        if (user === undefined || user === null || user.timeZoneId === undefined || user.timeZoneId === null) {
+          updateUserLocation.call(this, (err) => {
+            if (err) {
+              if (err === POSTAL_REQUIRED_ERROR) {
+                ctx.emit(':tell', grantDeviceLocationMessage)
+              } else {
+                ctx.emit(':tell', errorMilkyBabyMessage)
+              }
+            } else {
+              getUser(userId, user => {
+                insertMilkRecord(user)
+              })
+            }
+          })
+        } else {
+          insertMilkRecord(user)
+        }
       })
     }
-
-    getUser(userId, user => {
-      if (user === undefined || user === null || user.timeZoneId === undefined || user.timeZoneId === null) {
-        updateUserLocation.call(this, (err) => {
-          if (err) {
-            if (err === POSTAL_REQUIRED_ERROR) {
-              ctx.emit(':tell', `Please grant device location settings permissions to the skill in order to get your current time.`)
-            } else {
-              ctx.emit(':tell', `Error with Milky Baby skill, please try again`)
-            }
-          } else {
-            getUser(userId, user => {
-              insertMilkRecord(user)
-            })
-          }
-        })
-      } else {
-        insertMilkRecord(user)
-      }
-    })
   },
 
   'WhatsMyStatusIntent': function () {
@@ -146,11 +150,11 @@ const handlers = {
   },
 
   'AMAZON.CancelIntent': function () {
-    this.emit(':tell', 'Thank you for trying the Milky Baby Skill. Have a nice day!')
+    this.emit(':tell', thankYouMessage)
   },
 
   'AMAZON.StopIntent': function () {
-    this.emit(':tell', 'Thank you for trying the Milky Baby Skill. Have a nice day!')
+    this.emit(':tell', thankYouMessage)
   },
 
   'Unhandled': function () {

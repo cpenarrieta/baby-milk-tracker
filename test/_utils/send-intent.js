@@ -1,9 +1,9 @@
-var roleArn = process.env.AWS_ROLE
-var region = 'us-east-1'
-var AWS = require('aws-sdk')
+const roleArn = process.env.AWS_ROLE
+const region = 'us-east-1'
+const AWS = require('aws-sdk')
 
 function context(callback) {
-  var contextEvent = require('./context.json')
+  const contextEvent = require('./context.json')
 
   contextEvent.done = function(error, result) {
     callback(true, error)
@@ -21,7 +21,7 @@ function context(callback) {
 }
 
 AWS.config.region = region
-var sts = new AWS.STS()
+const sts = new AWS.STS()
 
 function send(input, callback) {
   sts.assumeRole({
@@ -37,8 +37,8 @@ function send(input, callback) {
         secretAccessKey: data.Credentials.SecretAccessKey,
         sessionToken: data.Credentials.SessionToken
       })
-      var Module = require('module')
-      var originalRequire = Module.prototype.require
+      const Module = require('module')
+      const originalRequire = Module.prototype.require
       Module.prototype.require = function(){
         if (arguments[0] === 'aws-sdk'){
           return AWS;
@@ -46,8 +46,8 @@ function send(input, callback) {
           return originalRequire.apply(this, arguments)
         }
       }
-      var lambda = require('../../index')
-      var event = require(`../${input}.json`)
+      const lambda = require('../../index')
+      const event = require(`../${input}.json`)
       lambda.handler(event, context(callback))
     }
   })

@@ -47,8 +47,7 @@ function send(input, callback) {
         }
       }
       const lambda = require('../../index')
-      const event = require(`../${input}.json`)
-      lambda.handler(event, context(callback))
+      lambda.handler(input, context(callback))
     }
   })
 }

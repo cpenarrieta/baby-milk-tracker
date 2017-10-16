@@ -3,7 +3,7 @@ const { incorrectNumberMessage, invalidUnitMessage } = require('../../messages')
 
 test('submitMilkIntent should add 100 ml', (done) => {
   expect(1).toBe(1)
-  const request = require(`./submitMilkIntent.json`)
+  const request = require(`./req-100-ml.json`)
   sendIntent(request, (err, res) => {
     const outputText = err ? 'error' : res.response.outputSpeech.ssml
     expect(outputText).toBe('<speak> 100 ml added. </speak>')
@@ -12,7 +12,7 @@ test('submitMilkIntent should add 100 ml', (done) => {
 })
 
 test('submitMilkIntent should validate number', (done) => {
-  const request = require(`./submitMilkIntent-wrong-number.json`)
+  const request = require(`./req-wrong-number.json`)
   sendIntent(request, (err, res) => {
     const outputText = err ? 'error' : res.response.outputSpeech.ssml
     expect(outputText).toBe(`<speak> ${incorrectNumberMessage} </speak>`)
@@ -21,7 +21,7 @@ test('submitMilkIntent should validate number', (done) => {
 })
 
 test('submitMilkIntent should validate unit', (done) => {
-  const request = require(`./submitMilkIntent-wrong-unit.json`)
+  const request = require(`./req-wrong-unit.json`)
   sendIntent(request, (err, res) => {
     const outputText = err ? 'error' : res.response.outputSpeech.ssml
     expect(outputText).toBe(`<speak> ${invalidUnitMessage} </speak>`)
